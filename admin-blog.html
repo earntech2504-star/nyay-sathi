@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>न्याय साथी - Blog Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Noto Sans Devanagari", sans-serif; background: #f1f5f9; padding: 16px; max-width: 800px; margin: 0 auto; }
+  h1 { color: #8b5cf6; font-size: 20px; margin-bottom: 16px; }
+  .card { background: white; padding: 18px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  h2 { font-size: 15px; color: #8b5cf6; margin-bottom: 12px; }
+  input, textarea, select, button { width: 100%; padding: 11px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; font-family: inherit; margin: 5px 0; box-sizing: border-box; }
+  textarea { min-height: 120px; resize: vertical; }
+  button { background: #8b5cf6; color: white; border: none; font-weight: 600; cursor: pointer; padding: 12px; margin-top: 10px; }
+  button:hover { background: #7c3aed; }
+  button.danger { background: #ef4444; padding: 6px 12px; width: auto; font-size: 12px; margin: 0; }
+  .item { background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #8b5cf6; }
+  .item h4 { font-size: 14px; color: #8b5cf6; margin-bottom: 4px; }
+  .item p { font-size: 13px; color: #475569; margin: 4px 0; }
+  .item small { color: #64748b; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>📝 Blog Admin Panel</h1>
+
+<div class="card">
+  <h2>➕ नया Blog Post</h2>
+  <input id="title" placeholder="Blog Title">
+  <select id="category">
+    <option value="Legal News">Legal News</option>
+    <option value="Case Study">Case Study</option>
+    <option value="Tips">Legal Tips</option>
+    <option value="Q&A">Q&A</option>
+    <option value="Update">Law Update</option>
+  </select>
+  <textarea id="content" placeholder="पूरा content लिखो..."></textarea>
+  <input id="author" placeholder="Author (default: Admin)">
+  <button onclick="addBlog()">✅ Publish करो</button>
+</div>
+
+<div class="card">
+  <h2>📋 सारे Blogs (<span id="count">0</span>)</h2>
+  <div id="list">Loading...</div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://fqhroqfawoszahtbdsxg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaHJvcWZhd29zemFodGJkc3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjM0OTMsImV4cCI6MjEwNTc5OTQ5M30.E_6hbNsEqDAp4hicGM0sbnJ8U_0PPaI3UxL7Lfl-0TA';
+const ADMIN_PASS = 'nyay-admin-2025';
+const $ = id => document.getElementById(id);
+const escapeHtml = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+(function() {
+  if (sessionStorage.getItem('blog_ok') === '1') return;
+  const p = prompt('🔐 Blog Admin Password:');
+  if (p !== ADMIN_PASS) {
+    document.body.innerHTML = '<h1 style="color:#ef4444;text-align:center;margin-top:100px">❌ Access Denied</h1>';
+    throw new Error('unauth');
+  }
+  sessionStorage.setItem('blog_ok', '1');
+})();
+
+async function addBlog() {
+  const data = {
+    title: $('title').value.trim(),
+    category: $('category').value,
+    content: $('content').value.trim(),
+    author: $('author').value.trim() || 'Admin',
+    active: true
+  };
+  if (!data.title || !data.content) return alert('Title और content ज़रूरी');
+  
+  const res = await fetch(SUPABASE_URL + '/rest/v1/blogs', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  });
+  
+  if (res.ok) {
+    alert('✅ Blog published!');
+    $('title').value = ''; $('content').value = ''; $('author').value = '';
+    loadBlogs();
+  } else {
+    alert('❌ Error: ' + await res.text());
+  }
+}
+
+async function loadBlogs() {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/blogs?select=*&order=created_at.desc', {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  const blogs = await res.json();
+  $('count').textContent = blogs.length;
+  
+  if (blogs.length === 0) {
+    $('list').innerHTML = '<p style="color:#64748b">कोई blog नहीं</p>';
+    return;
+  }
+  
+  $('list').innerHTML = blogs.map(b => 
+    '<div class="item"><h4>' + escapeHtml(b.title) + '</h4>' +
+    '<p>' + escapeHtml((b.content || '').substring(0, 150)) + '...</p>' +
+    '<small>' + escapeHtml(b.category) + ' • ' + new Date(b.created_at).toLocaleDateString('hi-IN') + '</small>' +
+    '<div style="margin-top:8px"><button class="danger" onclick="delBlog(\'' + b.id + '\')">🗑 Delete</button></div></div>'
+  ).join('');
+}
+
+async function delBlog(id) {
+  if (!confirm('Delete?')) return;
+  await fetch(SUPABASE_URL + '/rest/v1/blogs?id=eq.' + id, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  loadBlogs();
+}
+
+loadBlogs();
+</script>
+</body>
+</html>
