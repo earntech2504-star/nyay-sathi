@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>न्याय साथी - Admin</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: #f1f5f9; padding: 16px; max-width: 700px; margin: 0 auto; }
+  h1 { color: #1e5a9e; font-size: 22px; }
+  .card { background: white; padding: 18px; border-radius: 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  h2 { font-size: 16px; color: #1e5a9e; margin-bottom: 12px; }
+  input, textarea, select, button { width: 100%; padding: 11px; margin: 5px 0; border-radius: 9px; border: 1px solid #cbd5e1; font-size: 14px; font-family: inherit; }
+  textarea { resize: vertical; min-height: 90px; }
+  button { background: #1e5a9e; color: white; border: none; font-weight: 600; cursor: pointer; padding: 12px; margin-top: 10px; }
+  button:hover { background: #164578; }
+  button.danger { background: #ef4444; padding: 6px 12px; font-size: 12px; width: auto; margin: 0; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .item { background: #f8fafc; padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #1e5a9e; }
+  .item h4 { margin: 0 0 4px 0; color: #1e5a9e; font-size: 14px; }
+  .item p { font-size: 13px; color: #475569; margin: 4px 0; line-height: 1.5; }
+  .item small { color: #64748b; }
+  .badge { display: inline-block; background: #dbeafe; color: #1e5a9e; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+  #status { padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: none; }
+  #status.ok { background: #dcfce7; color: #166534; display: block; }
+  #status.err { background: #fee2e2; color: #991b1b; display: block; }
+</style>
+</head>
+<body>
+
+<h1>⚙️ न्याय साथी Admin</h1>
+<div id="status"></div>
+
+<div class="card">
+  <h2>➕ नया Legal Topic जोड़ो</h2>
+  <input id="kw" placeholder="Keyword (जैसे: तलाक, जमीन)">
+  <input id="ttl" placeholder="Title">
+  <textarea id="bdy" placeholder="पूरा explanation..."></textarea>
+  <div class="row">
+    <input id="src" placeholder="Source (जैसे: HMA 1955)">
+    <select id="cat">
+      <option value="family">पारिवारिक</option>
+      <option value="property">जमीन/संपत्ति</option>
+      <option value="criminal">आपराधिक</option>
+      <option value="civil">सिविल</option>
+      <option value="general">सामान्य</option>
+    </select>
+  </div>
+  <button onclick="addKnowledge()">✅ Add करो</button>
+</div>
+
+<div class="card">
+  <h2>📋 सारे Topics (<span id="count">0</span>)</h2>
+  <div id="list">Loading...</div>
+</div>
+
+<script>
+const SUPABASE_URL = '__SUPABASE_URL__';
+const SUPABASE_KEY = '__SUPABASE_KEY__';
+const ADMIN_PASS = 'nyay-admin-2025';  // << यहाँ अपना password डालो
+
+const $ = id => document.getElementById(id);
+
+function showStatus(msg, ok) {
+  const s = $('status');
+  s.textContent = msg;
+  s.className = ok ? 'ok' : 'err';
+  setTimeout(() => { s.className = ''; }, 3000);
+}
+
+// Login check
+(function checkAuth() {
+  if (sessionStorage.getItem('admin_ok') === '1') return;
+  const pass = prompt('🔐 Admin Password:');
+  if (pass !== ADMIN_PASS) {
+    document.body.innerHTML = '<h1 style="color:#ef4444;text-align:center;margin-top:100px">❌ Access Denied</h1>';
+    throw new Error('unauthorized');
+  }
+  sessionStorage.setItem('admin_ok', '1');
+})();
+
+async function addKnowledge() {
+  const data = {
+    keyword: $('kw').value.trim(),
+    title: $('ttl').value.trim(),
+    body: $('bdy').value.trim(),
+    source: $('src').value.trim(),
+    category: $('cat').value
+  };
+  if (!data.keyword || !data.title || !data.body) {
+    return showStatus('❌ सब fields भरो', false);
+  }
+  
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/knowledge', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) {
+      showStatus('✅ Add हो गया! अब app में दिखेगा', true);
+      $('kw').value = ''; $('ttl').value = ''; $('bdy').value = ''; $('src').value = '';
+      loadList();
+    } else {
+      showStatus('❌ Error: ' + (await res.text()), false);
+    }
+  } catch (e) {
+    showStatus('❌ Network error', false);
+  }
+}
+
+async function loadList() {
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/knowledge?select=*&order=created_at.desc', {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    });
+    const items = await res.json();
+    $('count').textContent = items.length;
+    
+    if (items.length === 0) {
+      $('list').innerHTML = '<p style="color:#64748b">अभी कोई topic नहीं। ऊपर से add करो।</p>';
+      return;
+    }
+    
+    $('list').innerHTML = items.map(k => \`
+      <div class="item">
+        <h4>\${escapeHtml(k.keyword)} — \${escapeHtml(k.title)}</h4>
+        <p>\${escapeHtml(k.body)}</p>
+        <p><small>📖 \${escapeHtml(k.source || '-')} | <span class="badge">\${escapeHtml(k.category || 'general')}</span></small></p>
+        <button class="danger" onclick="del('\${k.id}')">🗑 Delete</button>
+      </div>
+    \`).join('');
+  } catch (e) {
+    $('list').innerHTML = '<p style="color:#ef4444">Load fail: ' + e.message + '</p>';
+  }
+}
+
+async function del(id) {
+  if (!confirm('Delete करना है?')) return;
+  const res = await fetch(SUPABASE_URL + '/rest/v1/knowledge?id=eq.' + id, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  if (res.ok) { showStatus('🗑 Deleted', true); loadList(); }
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+loadList();
+</script>
+</body>
+</html>
