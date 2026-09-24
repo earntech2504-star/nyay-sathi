@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#1e5a9e" />
+<title>न्याय साथी - कानूनी सहायक</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2696.png" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --primary: #1e5a9e; --primary-dark: #164578;
+    --bg: #f1f5f9; --card: #ffffff; --text: #0f172a;
+    --muted: #64748b; --border: #e2e8f0;
+    --success: #10b981; --danger: #ef4444; --warn: #f59e0b;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
+  header { background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white; padding: 20px 16px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  header h1 { font-size: 22px; display: flex; align-items: center; gap: 8px; }
+  header p { font-size: 13px; opacity: 0.9; margin-top: 4px; }
+  .status-bar { display: flex; gap: 8px; padding: 8px 16px; font-size: 12px;
+    background: rgba(0,0,0,0.15); margin-top: 10px; border-radius: 8px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+  .dot.offline { background: var(--danger); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  main { padding: 16px; max-width: 720px; margin: 0 auto; }
+  .card { background: var(--card); border-radius: 14px; padding: 16px;
+    margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid var(--border); }
+  .card h2 { font-size: 16px; margin-bottom: 12px; color: var(--primary); display: flex; align-items: center; gap: 6px; }
+  input, textarea, select, button { width: 100%; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--border); font-size: 15px; font-family: inherit; background: white; color: var(--text); }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  textarea { resize: vertical; min-height: 80px; }
+  button { background: var(--primary); color: white; border: none; font-weight: 600;
+    cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+  button:hover { background: var(--primary-dark); }
+  button.secondary { background: var(--muted); }
+  .search-row { display: flex; gap: 8px; }
+  .search-row input { flex: 1; }
+  .search-row button { width: auto; padding: 12px 20px; margin: 0; }
+  .quick-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag { background: #e0ecff; color: var(--primary); padding: 6px 12px; border-radius: 20px;
+    font-size: 12px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
+  .tag:hover { background: var(--primary); color: white; }
+  .result-item { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .result-item:last-child { border-bottom: none; }
+  .result-item:hover { background: #f8fafc; }
+  .result-item h4 { font-size: 14px; color: var(--primary); margin-bottom: 4px; }
+  .result-item p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .result-item .source { font-size: 11px; color: var(--warn); margin-top: 4px; font-weight: 600; }
+  .post { padding: 12px; background: #f8fafc; border-radius: 10px; margin-bottom: 8px; }
+  .post .author { font-size: 12px; color: var(--primary); font-weight: 600; margin-bottom: 4px; }
+  .post .content { font-size: 13px; line-height: 1.5; }
+  .post .time { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { background: #f0f9ff; padding: 12px; border-radius: 10px; text-align: center; }
+  .stat .num { font-size: 22px; font-weight: 700; color: var(--primary); }
+  .stat .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: #0f172a; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px;
+    opacity: 0; transition: 0.3s; z-index: 1000; max-width: 90%; text-align: center; }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--danger); }
+  nav.bottom { position: fixed; bottom: 0; left: 0; right: 0; background: white;
+    border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4, 1fr);
+    z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+  nav.bottom button { background: transparent; color: var(--muted); padding: 10px 4px;
+    font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    border-radius: 0; margin: 0; font-weight: 500; }
+  nav.bottom button.active { color: var(--primary); }
+  nav.bottom button .icon { font-size: 20px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .banner { background: linear-gradient(135deg, #fef3c7, #fde68a); padding: 12px;
+    border-radius: 10px; font-size: 13px; color: #78350f; margin-bottom: 14px;
+    border-left: 4px solid var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚖️ न्याय साथी</h1>
+  <p>कानूनी सहायता - हर समय, हर जगह</p>
+  <div class="status-bar">
+    <span class="dot" id="netDot"></span>
+    <span id="netStatus">Online</span>
+    <span style="margin-left:auto" id="clock"></span>
+  </div>
+</header>
+<main>
+  <div class="tab-content active" id="tab-home">
+    <div class="banner">🎯 <strong>Lucknow & UP</strong> के लिए कानूनी सहायता - मुफ्त, तेज़, भरोसेमंद</div>
+    <div class="card">
+      <h2>🔍 कानूनी सवाल खोजें</h2>
+      <div class="search-row">
+        <input id="searchInput" placeholder="जैसे: तलाक, जमीन, FIR..." />
+        <button onclick="doSearch()">खोजें</button>
+      </div>
+      <div class="quick-tags">
+        <span class="tag" onclick="quickSearch('तलाक')">तलाक</span>
+        <span class="tag" onclick="quickSearch('जमीन विवाद')">जमीन</span>
+        <span class="tag" onclick="quickSearch('FIR')">FIR</span>
+        <span class="tag" onclick="quickSearch('पत्नी मायके')">पत्नी मायके</span>
+        <span class="tag" onclick="quickSearch('मेंटेनेंस')">मेंटेनेंस</span>
+        <span class="tag" onclick="quickSearch('दहेज')">दहेज</span>
+        <span class="tag" onclick="quickSearch('बच्चे की कस्टडी')">कस्टडी</span>
+      </div>
+      <div id="searchResults" style="margin-top:14px"></div>
+    </div>
+    <div class="card">
+      <h2>📊 आपके आंकड़े</h2>
+      <div class="stats">
+        <div class="stat"><div class="num" id="statLeads">0</div><div class="lbl">Leads</div></div>
+        <div class="stat"><div class="num" id="statSearches">0</div><div class="lbl">खोजें</div></div>
+        <div class="stat"><div class="num" id="statPosts">0</div><div class="lbl">पोस्ट</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-cases">
+    <div class="card">
+      <h2>📋 केस की जानकारी भरें</h2>
+      <input id="leadName" placeholder="आपका नाम" />
+      <input id="leadPhone" placeholder="मोबाइल नंबर" type="tel" style="margin-top:8px" />
+      <select id="leadCaseType" style="margin-top:8px">
+        <option value="">केस का प्रकार चुनें</option>
+        <option>पारिवारिक विवाद</option>
+        <option>जमीन / संपत्ति</option>
+        <option>आपराधिक</option>
+        <option>दहेज / घरेलू हिंसा</option>
+        <option>तलाक / मेंटेनेंस</option>
+        <option>बच्चे की कस्टडी</option>
+        <option>अन्य</option>
+      </select>
+      <textarea id="leadSummary" placeholder="अपनी समस्या संक्षेप में लिखें..." style="margin-top:8px"></textarea>
+      <button onclick="saveLead()">सबमिट करें</button>
+    </div>
+    <div class="card">
+      <h2>📚 पत्नी मायके केस - मुख्य बिंदु</h2>
+      <div class="result-item"><h4>पत्नी का मायके जाना</h4><p>अगर पत्नी अपनी मर्ज़ी से मायके गई है तो ये त्याग नहीं है। सुप्रीम कोर्ट के अनुसार, बिना उचित कारण के पत्नी को मायके जाने से रोकना क्रूरता (Cruelty) है।</p><div class="source">Hindu Marriage Act, 1955 - Section 13</div></div>
+      <div class="result-item"><h4>Restitution of Conjugal Rights</h4><p>पति/पत्नी द्वारा साथ रहने का आदेश (Section 9 HMA)। अगर कोई पक्ष बिना उचित कारण अलग रह रहा है तो ये केस किया जा सकता है।</p><div class="source">Section 9, Hindu Marriage Act</div></div>
+      <div class="result-item"><h4>भरण-पोषण (Maintenance)</h4><p>पत्नी, बच्चे और माता-पिता को भरण-पोषण का हक। CrPC Section 125 / BNSS Section 144 के तहत मजिस्ट्रेट कोर्ट में आवेदन।</p><div class="source">CrPC 125 / BNSS 144</div></div>
+      <div class="result-item"><h4>मानहानि से बचाव</h4><p>झूठे आरोप लगाने पर IPC 211 / BNS 248 के तहत कार्रवाई। साथ ही सिविल मानहानि का दावा भी किया जा सकता है।</p><div class="source">IPC 211 / BNS 248</div></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-community">
+    <div class="card">
+      <h2>💬 समुदाय से जुड़ें</h2>
+      <input id="postAuthor" placeholder="आपका नाम" />
+      <textarea id="postContent" placeholder="अनुभव / सवाल / सलाह लिखें..." style="margin-top:8px"></textarea>
+      <button onclick="savePost()">पोस्ट करें</button>
+      <div id="postsList" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-help">
+    <div class="card">
+      <h2>🆘 आपातकालीन संपर्क</h2>
+      <div class="result-item"><h4>📞 पुलिस</h4><p>100 / 112 (UP Police)</p></div>
+      <div class="result-item"><h4>👩 महिला हेल्पलाइन</h4><p>1090 (UP) / 181 (National)</p></div>
+      <div class="result-item"><h4>⚖️ विधिक सहायता</h4><p>15100 (NALSA Free Legal Aid)</p></div>
+      <div class="result-item"><h4>👶 चाइल्ड हेल्पलाइन</h4><p>1098</p></div>
+    </div>
+    <div class="card">
+      <h2>📖 ज़रूरी जानकारी</h2>
+      <div class="result-item"><h4>मुफ्त कानूनी सहायता कैसे पाएं?</h4><p>District Legal Services Authority (DLSA) में आवेदन करें। अगर आय ₹3 लाख से कम है, महिला/बच्चा/SC-ST हैं तो मुफ्त वकील मिलेगा।</p></div>
+      <div class="result-item"><h4>FIR दर्ज नहीं हो रही?</h4><p>SP को लिखित शिकायत करें, फिर Magistrate के पास Section 156(3) CrPC / BNSS 175(3) के तहत आवेदन करें।</p></div>
+      <div class="result-item"><h4>ऑनलाइन शिकायत</h4><p>UP Police: uppolice.gov.in | e-FIR सुविधा उपलब्ध है।</p></div>
+    </div>
+    <div class="card">
+      <h2>ℹ️ ऐप के बारे में</h2>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6">न्याय साथी एक मुफ्त कानूनी सहायता ऐप है। ये ऐप <strong>ऑफलाइन भी काम करता है</strong> - इंटरनेट बंद होने पर भी आपकी जानकारी सुरक्षित रहती है और ऑनलाइन होते ही सिंक हो जाती है।</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px">⚠️ ये केवल सामान्य जानकारी है, कानूनी सलाह नहीं। किसी भी गंभीर मामले में योग्य वकील से मिलें।</p>
+    </div>
+  </div>
+</main>
+
+<nav class="bottom">
+  <button class="active" onclick="switchTab('home', this)"><span class="icon">🏠</span>होम</button>
+  <button onclick="switchTab('cases', this)"><span class="icon">📋</span>केस</button>
+  <button onclick="switchTab('community', this)"><span class="icon">💬</span>समुदाय</button>
+  <button onclick="switchTab('help', this)"><span class="icon">🆘</span>मदद</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<script>
+const SUPABASE_URL = 'https://fqhroqfawoszahtbdsxg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaHJvcWZhd29zemFodGJkc3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjM0OTMsImV4cCI6MjEwNTc5OTQ5M30.E_6hbNsEqDAp4hicGM0sbnJ8U_0PPaI3UxL7Lfl-0TA';
+const $ = (id) => document.getElementById(id);
+const toast = (msg, type = '') => {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => { t.className = 'toast ' + type; }, 2600);
+};
+const escapeHtml = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const Store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } },
+  set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
+  push(k, item) {
+    const arr = this.get(k);
+    arr.unshift({ ...item, _localId: Date.now() + Math.random(), _synced: false });
+    this.set(k, arr); return arr;
+  },
+  markSynced(k, id) {
+    const arr = this.get(k).map(x => x._localId === id ? { ...x, _synced: true } : x);
+    this.set(k, arr);
+  }
+};
+
+function updateNet() {
+  const online = navigator.onLine;
+  $('netDot').className = 'dot' + (online ? '' : ' offline');
+  $('netStatus').textContent = online ? 'Online' : 'Offline (सुरक्षित)';
+}
+window.addEventListener('online', () => { updateNet(); syncAll(); toast('✅ ऑनलाइन - सिंक हो रहा है', 'success'); });
+window.addEventListener('offline', () => { updateNet(); toast('📴 ऑफलाइन मोड - डेटा सुरक्षित है'); });
+updateNet();
+
+setInterval(() => {
+  const d = new Date();
+  $('clock').textContent = d.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+}, 1000);
+
+async function supabaseInsert(table, data) {
+  if (!navigator.onLine) throw new Error('offline');
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + table, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return true;
+}
+
+async function supabaseSelect(table) {
+  if (!navigator.onLine) return [];
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/' + table + '?select=*&order=created_at.desc&limit=50', {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch { return []; }
+}
+
+async function syncAll() {
+  if (!navigator.onLine) return;
+  for (const table of ['leads', 'searches', 'community_posts']) {
+    const items = Store.get(table).filter(x => !x._synced);
+    for (const item of items) {
+      const payload = Object.assign({}, item);
+      delete payload._localId; delete payload._synced;
+      try { await supabaseInsert(table, payload); Store.markSynced(table, item._localId); } catch (e) {}
+    }
+  }
+  refreshStats();
+}
+setInterval(syncAll, 30000);
+
+// KNOWLEDGE now loaded from Supabase
+
+// searchLocal replaced by dynamic version
+
+async function doSearch() {
+  const q = $('searchInput').value.trim();
+  if (!q) return toast('कुछ लिखें', 'error');
+  
+  Store.push('searches', { query: q, created_at: new Date().toISOString() });
+  $('searchResults').innerHTML = '<p style="color:#64748b;font-size:13px">🔍 खोज रहे हैं...</p>';
+  
+  // Supabase se search
+  let results = [];
+  try {
+    if (navigator.onLine) {
+      const url = SUPABASE_URL + '/rest/v1/knowledge?active=eq.true&or=(keyword.ilike.*' +
+                  encodeURIComponent(q) + '*,title.ilike.*' +
+                  encodeURIComponent(q) + '*,body.ilike.*' +
+                  encodeURIComponent(q) + '*)&limit=20';
+      const res = await fetch(url, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+      });
+      if (res.ok) {
+        results = await res.json();
+        // Cache update
+        localStorage.setItem('knowledge_cache', JSON.stringify(results));
+      }
+    }
+  } catch (e) { console.log('search error', e); }
+  
+  // Offline - cache se
+  if (results.length === 0) {
+    const cached = JSON.parse(localStorage.getItem('knowledge_cache') || '[]');
+    const query = q.toLowerCase();
+    results = cached.filter(k =>
+      (k.keyword || '').toLowerCase().includes(query) ||
+      (k.title || '').toLowerCase().includes(query) ||
+      (k.body || '').toLowerCase().includes(query)
+    );
+  }
+  
+  const c = $('searchResults');
+  if (results.length > 0) {
+    c.innerHTML = results.map(r =>
+      '<div class="result-item"><h4>' + escapeHtml(r.title) + '</h4>' +
+      '<p>' + escapeHtml(r.body) + '</p>' +
+      '<div class="source">📖 ' + escapeHtml(r.source || '') + '</div></div>'
+    ).join('');
+  } else {
+    c.innerHTML = '<div class="banner">❌ इस सवाल का जवाब अभी नहीं है। <strong>केस टैब</strong> में फॉर्म भरें - हम संपर्क करेंगे।</div>';
+  }
+  
+  syncAll();
+  refreshStats();
+}
+function quickSearch(q) { $('searchInput').value = q; doSearch(); }
+
+async function saveLead() {
+  const name = $('leadName').value.trim();
+  const phone = $('leadPhone').value.trim();
+  const caseType = $('leadCaseType').value;
+  const summary = $('leadSummary').value.trim();
+  if (!name || !phone) return toast('नाम और फोन ज़रूरी है', 'error');
+  if (!/^[0-9]{10}$/.test(phone.replace(/\D/g,''))) return toast('10 अंकों का सही नंबर डालें', 'error');
+  Store.push('leads', { name, phone, case_type: caseType, summary, created_at: new Date().toISOString() });
+  $('leadName').value = ''; $('leadPhone').value = ''; $('leadCaseType').value = ''; $('leadSummary').value = '';
+  toast('✅ सबमिट हो गया! ऑनलाइन होते ही सिंक होगा', 'success');
+  refreshStats(); syncAll();
+}
+
+async function savePost() {
+  const author = $('postAuthor').value.trim() || 'अज्ञात';
+  const content = $('postContent').value.trim();
+  if (!content) return toast('कुछ लिखें', 'error');
+  Store.push('community_posts', { author, content, created_at: new Date().toISOString() });
+  $('postContent').value = '';
+  toast('✅ पोस्ट हो गया', 'success');
+  renderPosts(); refreshStats(); syncAll();
+}
+
+async function renderPosts() {
+  const local = Store.get('community_posts');
+  const remote = await supabaseSelect('community_posts');
+  const merged = local.concat(remote).slice(0, 30);
+  if (merged.length === 0) { $('postsList').innerHTML = '<p style="color:var(--muted);font-size:13px">अभी कोई पोस्ट नहीं। पहले बनें!</p>'; return; }
+  $('postsList').innerHTML = merged.map(p => '<div class="post"><div class="author">👤 ' + escapeHtml(p.author || 'अज्ञात') + ' ' + (p._synced === false ? '⏳' : '') + '</div><div class="content">' + escapeHtml(p.content) + '</div><div class="time">' + new Date(p.created_at).toLocaleString('hi-IN') + '</div></div>').join('');
+}
+
+function refreshStats() {
+  $('statLeads').textContent = Store.get('leads').length;
+  $('statSearches').textContent = Store.get('searches').length;
+  $('statPosts').textContent = Store.get('community_posts').length;
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav.bottom button').forEach(b => b.classList.remove('active'));
+  $('tab-' + name).classList.add('active'); btn.classList.add('active');
+  if (name === 'community') renderPosts();
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(() => console.log('SW ok')).catch(e => console.log(e));
+  });
+}
+
+async function refreshKnowledgeCache() {
+  if (!navigator.onLine) return;
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/knowledge?active=eq.true&select=*', {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem('knowledge_cache', JSON.stringify(data));
+      console.log('✅ Knowledge cache updated:', data.length, 'items');
+    }
+  } catch (e) {}
+}
+
+refreshKnowledgeCache();
+setInterval(refreshKnowledgeCache, 5 * 60 * 1000);
+
+refreshStats(); updateNet(); setTimeout(syncAll, 2000);
+console.log('⚖️ न्याय साथी ready');
+</script>
+</body>
+</html>
