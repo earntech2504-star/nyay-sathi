@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>न्याय साथी - Case Playbooks</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Noto Sans Devanagari", sans-serif; background: #f1f5f9; padding: 14px; max-width: 800px; margin: 0 auto; }
+  header { background: linear-gradient(135deg, #1e5a9e, #164578); color: white; padding: 16px; border-radius: 12px; margin-bottom: 14px; }
+  h1 { font-size: 18px; }
+  h2 { font-size: 15px; color: #1e5a9e; margin: 14px 0 8px; }
+  .search { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 14px; margin-bottom: 14px; }
+  .case-card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #1e5a9e; cursor: pointer; }
+  .case-card h3 { font-size: 15px; color: #1e5a9e; margin-bottom: 4px; }
+  .case-card p { font-size: 12px; color: #64748b; }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; padding: 12px; overflow-y: auto; }
+  .modal.active { display: block; }
+  .modal-content { background: white; border-radius: 14px; padding: 18px; max-width: 700px; margin: 20px auto; }
+  .modal-content h2 { color: #1e5a9e; margin-bottom: 14px; font-size: 17px; }
+  .section { margin-bottom: 14px; padding: 12px; border-radius: 10px; background: #f8fafc; border-left: 4px solid #f59e0b; }
+  .section h4 { font-size: 12px; color: #92400e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .section p, .section li { font-size: 13px; line-height: 1.6; color: #334155; }
+  .section ul, .section ol { padding-left: 18px; }
+  .close-btn { width: 100%; padding: 12px; background: #1e5a9e; color: white; border: none; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px; }
+  .warning { background: #fef2f2; border-left-color: #ef4444; }
+  .warning h4 { color: #991b1b; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚖️ न्याय साथी - Case Playbooks</h1>
+  <p style="font-size:12px;opacity:0.9;margin-top:4px">Phone आते ही पहले यहाँ देखो</p>
+</header>
+
+<input id="search" class="search" placeholder="केस खोजो (तलाक, जमीन, FIR...)" oninput="render()" />
+
+<div id="list"></div>
+
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h2 id="modalTitle"></h2>
+    <div id="modalBody"></div>
+    <button class="close-btn" onclick="closeModal()">बंद करो</button>
+  </div>
+</div>
+
+<script>
+const PASS = 'nyay-admin-2025';
+(function() {
+  if (sessionStorage.getItem('cases_ok') === '1') return;
+  const p = prompt('🔐 Password:');
+  if (p !== PASS) {
+    document.body.innerHTML = '<h1 style="color:#ef4444;text-align:center;margin-top:100px">❌ Access Denied</h1>';
+    throw new Error('unauth');
+  }
+  sessionStorage.setItem('cases_ok', '1');
+})();
+
+const PLAYBOOK = {
+  'तलाक': {
+    title: '💔 तलाक (Divorce)',
+    type: 'Mutual / Contested',
+    script: 'नमस्ते, तलाक के बारे में 3 सवाल:\n1. दोनों पक्ष राज़ी हैं या सिर्फ आप?\n2. शादी कब हुई थी?\n3. बच्चे हैं क्या?',
+    docs: ['शादी का प्रमाण', 'दोनों के आधार', '2 पासपोर्ट फोटो', 'एड्रेस प्रूफ', 'बच्चों के जन्म प्रमाण', 'अलग रहने का सबूत'],
+    process: ['Mutual: Joint Petition → First Motion → 6 महीने cooling → Second Motion → Decree', 'Contested: नोटिस → Petition → Grounds → Evidence → Judgment', 'Hindu: HMA 1955 Sec 13'],
+    fees: '₹25,000 - ₹1,50,000',
+    timeline: '6 महीने - 3 साल',
+    warnings: ['Ground सही होना ज़रूरी', 'Cooling period 6 महीने']
+  },
+  'मेंटेनेंस': {
+    title: '💵 भरण-पोषण (Maintenance)',
+    type: 'Section 144 BNSS',
+    script: 'किसके लिए मेंटेनेंस चाहिए — अपने/बच्चों/माता-पिता?\nपति की income कितनी है?',
+    docs: ['आधार', 'शादी का प्रमाण', 'बच्चों के जन्म प्रमाण', 'पति की income proof', 'WhatsApp chat'],
+    process: ['Section 144 BNSS', 'SDM/Magistrate Court', 'Interim maintenance माँगो', 'Final order 6 महीने - 1 साल'],
+    fees: '₹15,000 - ₹40,000 + ₹5,000/hearing',
+    timeline: '6 महीने - 1 साल',
+    warnings: ['Interim जल्दी माँगो', 'Income छुपा सकता है']
+  },
+  'दहेज': {
+    title: '⚠️ दहेज प्रताड़ना (498A)',
+    type: 'IPC 498A / BNS 85-86',
+    script: 'दहेज माँग कब हुई? Witness?\nचोट का निशान? Medical?\nकितने आरोपी?',
+    docs: ['शादी का प्रमाण', 'Medical report', 'WhatsApp screenshot', 'गवाहों के नाम'],
+    process: ['महिला थाना FIR', 'Section 498A', 'DV Act Protection Order', 'Trial 2-5 साल'],
+    fees: '₹50,000 - ₹1,50,000',
+    timeline: '2-5 साल',
+    warnings: ['झूठे आरोप मत लगवाना', 'IPC 211 बन सकता है']
+  },
+  'जमीन': {
+    title: '🏞️ जमीन / संपत्ति',
+    type: 'Civil / Revenue',
+    script: 'जमीन कहाँ है? Khasra No.?\nकिसके नाम पे?\nखतौनी/रजिस्ट्री है?',
+    docs: ['खतौनी', 'रजिस्ट्री', 'पिता की मृत्यु प्रमाण', 'Family Tree', 'आधार'],
+    process: ['बंटवारा: Civil Court Partition Suit', 'कब्ज़ा: SDM/Tehsildar', 'Injunction तुरंत', '2-4 साल'],
+    fees: '₹30,000 - ₹2,00,000',
+    timeline: '1-4 साल',
+    warnings: ['Property value पर court fees', 'Injunction तुरंत माँगो']
+  },
+  'FIR': {
+    title: '🚔 FIR दर्ज कराना',
+    type: 'CrPC 154 / BNSS 173',
+    script: 'क्या हुआ? तारीख, समय, जगह?\nथाने में गए? Receipt मिली?',
+    docs: ['लिखित complaint', 'आधार', 'सबूत (फोटो/video)', 'गवाहों के नाम'],
+    process: ['थानेदार को complaint', 'SP को registered post', 'Section 175(3) BNSS', '15-30 दिन'],
+    fees: '₹10,000 - ₹50,000',
+    timeline: '15 दिन - 3 महीने',
+    warnings: ['Receipt लेना ज़रूरी', 'Registered post भेजो']
+  },
+  'कस्टडी': {
+    title: '👶 बच्चे की कस्टडी',
+    type: 'Guardians & Wards Act',
+    script: 'बच्चे की उम्र?\nअभी किसके साथ?\nIncome कितनी?',
+    docs: ['जन्म प्रमाण', 'आधार', 'शादी का प्रमाण', 'Income proof'],
+    process: ['Family Court application', 'Mediation', 'Court Commissioner', 'Final Order 1-2 साल'],
+    fees: '₹40,000 - ₹1,00,000',
+    timeline: '1-2 साल',
+    warnings: ['बच्चे को weapon मत बनाओ', 'Welfare सर्वोपरि']
+  },
+  'चेक': {
+    title: '💳 चेक बाउंस',
+    type: 'Section 138 NI Act',
+    script: 'Cheque कितने का?\nकब bounce हुआ?\nNotice मिला?',
+    docs: ['Original cheque', 'Return memo', 'Invoice', 'Bank statement'],
+    process: ['30 दिन में legal notice', '15 दिन का time', 'Magistrate Court', 'Trial 6 महीने - 2 साल'],
+    fees: '₹15,000 - ₹40,000',
+    timeline: '6 महीने - 2 साल',
+    warnings: ['30 दिन deadline miss मत करो']
+  },
+  'किराया': {
+    title: '🏠 किराया विवाद',
+    type: 'UP Rent Control Act',
+    script: 'Rent नहीं दे रहा? कब्ज़ा नहीं छोड़ रहा?\nAgreement है?',
+    docs: ['Rent Agreement', 'Registry', 'Receipts', 'WhatsApp'],
+    process: ['Legal notice 15 दिन', 'Small Causes Court', 'Eviction suit', '6 महीने - 2 साल'],
+    fees: '₹20,000 - ₹50,000',
+    timeline: '6 महीने - 2 साल',
+    warnings: ['Illegal eviction मत करो']
+  },
+  'एक्सीडेंट': {
+    title: '🚗 मोटर एक्सीडेंट',
+    type: 'MACT Claim',
+    script: 'कब हुआ? Vehicle number?\nInsurance? Disability?',
+    docs: ['FIR', 'Medical bills', 'Discharge summary', 'Income proof'],
+    process: ['MACT application', 'Section 166 MV Act', 'Compensation formula', '1-2 साल'],
+    fees: '10-20% of claim',
+    timeline: '1-2 साल',
+    warnings: ['FIR ज़रूरी', 'Bills जमा करो']
+  },
+  'कंपनी': {
+    title: '🏢 कंपनी रजिस्ट्रेशन',
+    type: 'MCA ROC Filing',
+    script: 'Pvt Ltd या LLP?\nकितने directors?\nCapital कितनी?',
+    docs: ['PAN + Aadhar', 'Photos', 'Address proof', 'Office NOC'],
+    process: ['DIN apply', 'DSC बनवाओ', 'Name approval', 'MOA/AOA', 'SPICe+', '15-25 days'],
+    fees: 'Pvt: ₹15,000-50,000 | LLP: ₹10,000-30,000',
+    timeline: '15-25 days',
+    warnings: ['Name unique हो', 'Monthly compliance']
+  },
+  'GST': {
+    title: '🧾 GST Registration',
+    type: 'Indirect Tax',
+    script: 'Registration या monthly filing?\nBusiness कौन सा?\nTurnover?',
+    docs: ['PAN + Aadhar', 'Bank details', 'Business proof', 'Rent agreement'],
+    process: ['GST Portal form', 'Aadhaar auth', 'Documents upload', 'GSTIN 7-15 days'],
+    fees: '₹5,000-15,000 + monthly',
+    timeline: '7-15 days + ongoing',
+    warnings: ['Due dates miss मत करो']
+  },
+  'Trademark': {
+    title: '™️ Trademark',
+    type: 'IPR',
+    script: 'Brand/Logo कौन सा?\nBusiness कौन सा?',
+    docs: ['Logo HD', 'PAN + Aadhar', 'TM-48 POA'],
+    process: ['Search करो', 'Class identify', 'TM-A file', 'Exam report 3-6 महीने', '18-24 महीने total'],
+    fees: '₹10,000-40,000 per class',
+    timeline: '18-24 महीने',
+    warnings: ['Search ज़रूर करो', 'Class सही चुनो']
+  },
+  'Property Registration': {
+    title: '🏠 Property Registration',
+    type: 'Registration Act 1908',
+    script: 'प्रॉपर्टी कहाँ?\nकितनी value?\nदाखिल खारिज करानी है?',
+    docs: ['Sale Deed', 'Chain of title', 'खतौनी', 'PAN', '2 witnesses'],
+    process: ['Sale deed draft', 'e-Stamping 5%+2%', 'Sub-Registrar', 'दाखिल खारिज', '15-45 days'],
+    fees: '₹25,000-1,00,000',
+    timeline: '15-45 days',
+    warnings: ['Title clear हो', 'Witness ज़रूरी']
+  },
+  'Consumer': {
+    title: '🛒 Consumer Court',
+    type: 'Consumer Protection Act 2019',
+    script: 'कौन सी service?\nBill कितना?\nComplaint की?',
+    docs: ['Bill', 'Payment proof', 'Warranty', 'Communication'],
+    process: ['Company को complaint', 'e-Daakhil portal', 'District/State/National', '6-12 महीने'],
+    fees: '₹20,000-60,000',
+    timeline: '6 महीने - 2 साल',
+    warnings: ['Time limit 2 साल']
+  },
+  'Cyber Crime': {
+    title: '🔒 Cyber Crime',
+    type: 'IT Act 2000 + BNS',
+    script: 'क्या हुआ? Fraud/Hacking?\nAmount कितना?',
+    docs: ['Transaction details', 'Bank statement', 'Screenshots', 'Chat'],
+    process: ['Cyber cell 1930 helpline', 'cybercrime.gov.in', 'Bank chargeback', 'FIR', '3-6 महीने'],
+    fees: '₹25,000-75,000',
+    timeline: '3-6 महीने',
+    warnings: ['72 घंटे में complaint', '1930 तुरंत call']
+  },
+  'IT Notice': {
+    title: '📊 Income Tax Notice',
+    type: 'IT Act 1961',
+    script: 'कौन सी notice? 143(1)/139(9)/148?\nDemand कितना?',
+    docs: ['Notice copy', 'ITR', 'Form 16', 'Bank statements'],
+    process: ['Notice समझो', 'Reply draft', 'Documents upload', 'Deadline से पहले', '30 days'],
+    fees: '₹15,000-1,00,000',
+    timeline: '30 days per notice',
+    warnings: ['Deadline miss मत करो']
+  },
+  'Succession': {
+    title: '📜 Succession Certificate',
+    type: 'Indian Succession Act 1925',
+    script: 'किसका निधन?\nWill है?\nProperty कितनी?',
+    docs: ['Death certificate', 'Will', 'Property docs', 'Family tree', 'NOC'],
+    process: ['Civil Court application', 'Newspaper notice', '30 दिन objection', 'Certificate', '3-6 महीने'],
+    fees: '₹30,000-1,50,000',
+    timeline: '3-6 महीने',
+    warnings: ['सब heirs को शामिल करो']
+  },
+  'Court Marriage': {
+    title: '💍 Court Marriage',
+    type: 'Special Marriage Act 1954',
+    script: 'उम्र? लड़का 21+, लड़की 18+?\nDifferent religion?',
+    docs: ['Birth Certificate', 'Aadhar', 'Photos', 'Affidavit', '2 witnesses'],
+    process: ['Notice दो', '30 दिन wait', 'Date fix', 'Certificate', '35-45 days'],
+    fees: '₹15,000-40,000',
+    timeline: '35-45 days',
+    warnings: ['Age proof ज़रूरी', '30-day notice mandatory']
+  },
+  'Rent Agreement': {
+    title: '📝 Rent Agreement',
+    type: 'Registration Act',
+    script: 'कितने महीने का?\nRent कितना?\nDeposit?',
+    docs: ['Landlord PAN+Aadhar', 'Tenant PAN+Aadhar', 'Property docs', '2 witnesses'],
+    process: ['Draft', 'e-Stamping', 'Sub-Registrar', 'Registered agreement', '1-3 days'],
+    fees: '₹8,000-25,000',
+    timeline: '1-3 days',
+    warnings: ['11+ महीने registration ज़रूरी']
+  }
+};
+
+const esc = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function render() {
+  const q = (document.getElementById('search').value || '').toLowerCase().trim();
+  const list = document.getElementById('list');
+  const entries = Object.entries(PLAYBOOK).filter(([k, v]) =>
+    !q || k.toLowerCase().includes(q) || v.title.toLowerCase().includes(q)
+  );
+  if (entries.length === 0) {
+    list.innerHTML = '<p style="color:#64748b;text-align:center;padding:20px">कोई केस नहीं मिला</p>';
+    return;
+  }
+  list.innerHTML = entries.map(([k, c]) =>
+    '<div class="case-card" onclick="openCase(\'' + esc(k) + '\')">' +
+    '<h3>' + esc(c.title) + '</h3>' +
+    '<p>' + esc(c.type) + ' • ' + esc(c.fees) + '</p>' +
+    '</div>'
+  ).join('');
+}
+
+function openCase(key) {
+  const c = PLAYBOOK[key];
+  if (!c) return;
+  document.getElementById('modalTitle').textContent = c.title;
+  document.getElementById('modalBody').innerHTML = 
+    '<div class="section"><h4>📞 Phone Script</h4><p>' + esc(c.script).replace(/\n/g, '<br>') + '</p></div>' +
+    '<div class="section" style="border-left-color:#1e5a9e"><h4 style="color:#1e5a9e">📄 Documents</h4><ul>' + c.docs.map(d => '<li>☐ ' + esc(d) + '</li>').join('') + '</ul></div>' +
+    '<div class="section" style="border-left-color:#10b981"><h4 style="color:#065f46">⚖️ Process</h4><ol>' + c.process.map(p => '<li>' + esc(p) + '</li>').join('') + '</ol></div>' +
+    '<div class="section" style="border-left-color:#8b5cf6"><h4 style="color:#5b21b6">💰 Fees</h4><p><strong>' + esc(c.fees) + '</strong></p><p>⏱️ ' + esc(c.timeline) + '</p></div>' +
+    '<div class="section warning"><h4>⚠️ Warnings</h4><ul>' + c.warnings.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
+  document.getElementById('modal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+}
+
+render();
+</script>
+</body>
+</html>
